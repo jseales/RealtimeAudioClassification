@@ -1,3 +1,7 @@
+
+###IMPORTS
+
+
 from __future__ import print_function
 import csv
 import numpy as np
@@ -21,16 +25,30 @@ import IPython.display as ipd
 
 import sys
 
+
+
+
+
+
+
 def imshow(img):
     img = img / 2 + 0.5     # unnormalize
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
 
+# adds '*' to the path?    
 def listdir_nohidden(path):
     return glob.glob(os.path.join(path, '*'))
 
+
+
+
 def GenerateSpectrums(MainFile):
+    
+    #load up the constants:     
+    #RESOLUTION,SAMPLE_RATE,N_FFT,N_MELS,HOP_LENGTH,FMIN,FMAX,POWER
+    #Give them values. I changed FMIN to 40 and FMAX to 8000
     SpectrumVariables={}
     with open('../SpectrumVarialbes.csv', newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -45,19 +63,43 @@ def GenerateSpectrums(MainFile):
                                                     hop_length=SpectrumVariables['HOP_LENGTH'],
                                                     n_mels=SpectrumVariables['N_MELS'],
                                                     power=SpectrumVariables['POWER'],
-                                                   fmin=SpectrumVariables['FMIN'],
+                                                    fmin=SpectrumVariables['FMIN'],
                                                     fmax=SpectrumVariables['FMAX'])
+    
     mel_spec_db = np.float32(librosa.power_to_db(mel_spec_power, ref=np.max))
-    mel_spec_db-=mel_spec_db.min()
-    mel_spec_db/=mel_spec_db.max()
+    
+    #Scale the spectrogram to [0,1]
+    mel_spec_db -= mel_spec_db.min()
+    mel_spec_db /= mel_spec_db.max()
+    
     im = np.uint8(cm.gist_earth(mel_spec_db)*255)[:,:,:3]
+    #print('im.shape', im.shape)
     ArrayofPictures = []
     RESOLUTION = SpectrumVariables['RESOLUTION']
+    #print('RESOLUTION', RESOLUTION)
+    ratio = im.shape[1]/RESOLUTION
+    #print('ratio', ratio)
+    #print('target number of images: ', int(np.floor(im.shape[1]/RESOLUTION)))
+    
+    
+    # if the spectrogram is too small, double it.
+    while (ratio < 1):
+        im = np.concatenate((im, im), axis=1)
+        ratio = im.shape[1]/RESOLUTION
+     
+        
+    
     for i in range(int(np.floor(im.shape[1]/RESOLUTION))):
-        startx=RESOLUTION*i
-        stopx=RESOLUTION*(i+1)
+        startx = RESOLUTION*i
+        stopx = RESOLUTION*(i+1)
         ArrayofPictures.append(im[:,startx:stopx,:])
+    print ("GenerateSpectrums returning an array of ", len(
+        ArrayofPictures), " pictures.")
     return ArrayofPictures
+
+
+
+
 
 def log_mel_spec_tfm(dataInput):
     src_path=dataInput[0]
@@ -65,7 +107,7 @@ def log_mel_spec_tfm(dataInput):
     #print(src_path, dst_path)
     print('Starting on',os.path.split(src_path)[1])
     pictures = GenerateSpectrums(src_path)
-    print(len(pictures))
+    print('len(pictures)', len(pictures))
     fname = os.path.split(src_path)[-1]
     count=0
     for pic in pictures:
@@ -78,14 +120,20 @@ def log_mel_spec_tfm(dataInput):
         print(src_path)
 
 
+#What's Type? It's not mentioned previously. This pattern would seem to indicate that we would like Type to have been defined.
 try:
+    print ('Type', Type)
     Type
+           
 except NameError:
     if(len(sys.argv)>1):
         print("FoundArguments, will start converting")
         source = str(sys.argv[1])
+        print('source', source)
         target = str(sys.argv[2])
+        print ('target', target)
         log_mel_spec_tfm((source,target))
+           
 else:
     if(Type=="INTERFACE"):
         SOURCE_DATA_ROOT='../AudioData/'
